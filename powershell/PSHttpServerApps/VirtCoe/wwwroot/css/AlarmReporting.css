@@ -22,6 +22,236 @@
     overflow-y: auto;
 }
 
+/* ===== VCENTER CARDS (LEFT COLUMN) ===== */
+
+.vcenter-card {
+    background-color: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+}
+
+.vcenter-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-light);
+}
+
+.vcenter-card.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(53, 99, 233, 0.05);
+    box-shadow: 0 4px 12px rgba(53, 99, 233, 0.15);
+}
+
+.vcenter-card-header {
+    margin-bottom: 0.75rem;
+}
+
+.vcenter-name {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.vcenter-name a {
+    color: var(--primary-color);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: var(--transition);
+}
+
+.vcenter-name a:hover {
+    color: var(--primary-light);
+}
+
+.external-link-icon {
+    width: 16px;
+    height: 16px;
+    margin-left: 0.5rem;
+    opacity: 0.7;
+}
+
+.vcenter-card-body {
+    font-size: 0.875rem;
+}
+
+.vcenter-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.alarm-count {
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.alarm-count.has-alarms {
+    background-color: var(--error-light);
+    color: var(--error-color);
+    border: 1px solid rgba(229, 62, 62, 0.3);
+}
+
+.alarm-count.no-alarms {
+    background-color: var(--success-light);
+    color: var(--success-color);
+    border: 1px solid rgba(56, 161, 105, 0.3);
+}
+
+.last-updated {
+    color: var(--text-light);
+    font-size: 0.75rem;
+}
+
+/* ===== ALARMS CONTAINER (RIGHT COLUMN) ===== */
+.alarms-container {
+    width: 100%;
+}
+
+.alarms-container h2 {
+    color: var(--text-dark);
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alarms-count {
+    background-color: var(--info-light);
+    color: var(--info-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    display: inline-block;
+}
+
+/* ===== NO SELECTION STATE ===== */
+.no-selection {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-medium);
+}
+
+.no-selection h2 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+}
+
+.no-selection p {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+/* ===== NO ALARMS STATE ===== */
+.no-alarms {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--success-light);
+    border-radius: 8px;
+    border: 1px solid rgba(56, 161, 105, 0.3);
+}
+
+.no-alarms p {
+    color: var(--success-color);
+    font-weight: 500;
+    margin: 0;
+}
+
+/* ===== ALARMS GRID ===== */
+.alarms-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+/* ===== ALARM CARDS ===== */
+.alarm-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--error-color);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+}
+
+.alarm-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.08);
+    border-left-color: var(--error-color);
+}
+
+.alarm-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+    gap: 1rem;
+}
+
+.alarm-name {
+    color: var(--text-dark);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.4;
+    flex-grow: 1;
+}
+
+.alarm-timestamp {
+    color: var(--text-light);
+    font-size: 0.75rem;
+    background-color: var(--background);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.alarm-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.alarm-resource,
+.alarm-message {
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.alarm-resource strong,
+.alarm-message strong {
+    color: var(--text-dark);
+    font-weight: 600;
+    display: inline-block;
+    min-width: 80px;
+}
+
+.alarm-resource {
+    color: var(--primary-color);
+}
+
+.alarm-message {
+    color: var(--text-medium);
+    background-color: var(--background);
+    padding: 0.5rem;
+    border-radius: 4px;
+    border-left: 3px solid var(--warning-color);
+}
+
 /* Responsive Design */
 @media screen and (max-width: 768px) {
     .two-column-container {

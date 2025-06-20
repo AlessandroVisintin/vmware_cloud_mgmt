@@ -1,0 +1,366 @@
+<div class="two-column-container">
+    <div class="column-left">
+        <div class="loading-indicator" id="loading">Loading vCenter endpoints...</div>
+    </div>
+    <div class="column-right">
+        <div class="welcome-message">
+            <p>Select a vCenter endpoint to view its triggered alarms</p>
+        </div>
+    </div>
+</div>
+
+<script>
+
+class VCenterDashboard {
+
+    constructor() {
+        this.vcenterData = new Map();
+        this.selectedEndpoint = null;
+        this.leftColumn = document.querySelector('.column-left');
+        this.rightColumn = document.querySelector('.column-right');
+        this.init();
+    }
+
+    // ===================
+    // INITIALIZATION
+    // ===================
+
+    async init() {
+        try {
+            await this.loadAndRenderVCenters();
+        } catch (error) {
+            this.handleGlobalError('Failed to initialize dashboard', error);
+        }
+    }
+
+    async loadAndRenderVCenters() {
+        try {
+            const endpoints = await this.apiService.getVCenterEndpoints();
+            if (endpoints.length === 0) {
+                this.renderEmptyState();
+                return;
+            }
+            this.renderVCenterCards(endpoints);
+            await this.loadAllAlarmsData(endpoints);
+            if (endpoints.length > 0) {
+                this.selectVCenter(endpoints[0]);
+            }
+        } catch (error) {
+            this.handleGlobalError('Failed to load vCenter endpoints', error);
+        }
+    }
+
+    // ===================
+    // API SERVICE
+    // ===================
+
+    apiService = {
+        async getVCenterEndpoints() {
+            const response = await fetch('/api/vcenterendpoints', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            if (data.status !== 200) {
+                throw new Error(data.message || 'Failed to load vCenter endpoints');
+            }
+            return data.results || [];
+        },
+
+        async getTriggeredAlarms(endpoint) {
+            const response = await fetch('/api/vcentertriggeredalarms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint })
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            if (data.status !== 200) {
+                throw new Error(data.message || 'Failed to load triggered alarms');
+            }
+            return data.results || [];
+        }
+    };
+
+    // ===================
+    // DATA MANAGEMENT
+    // ===================
+
+    async loadAllAlarmsData(endpoints) {
+        const loadPromises = endpoints.map(endpoint => this.loadAlarmsForEndpoint(endpoint));
+        await Promise.allSettled(loadPromises);
+    }
+
+    async loadAlarmsForEndpoint(endpoint) {
+        try {
+            this.updateVCenterStatus(endpoint, 'loading');
+            const alarms = await this.apiService.getTriggeredAlarms(endpoint);
+            this.vcenterData.set(endpoint, {
+                endpoint,
+                alarms,
+                status: 'success',
+                lastUpdated: new Date(),
+                error: null
+            });
+            this.updateVCenterCard(endpoint);
+        } catch (error) {
+            console.error(`Failed to load alarms for ${endpoint}:`, error);
+            this.vcenterData.set(endpoint, {
+                endpoint,
+                alarms: [],
+                status: 'error',
+                lastUpdated: new Date(),
+                error: error.message
+            });
+            this.updateVCenterCard(endpoint);
+        }
+    }
+
+    updateVCenterStatus(endpoint, status) {
+        const existingData = this.vcenterData.get(endpoint) || {};
+        this.vcenterData.set(endpoint, {
+            ...existingData,
+            endpoint,
+            status,
+            lastUpdated: new Date()
+        });
+    }
+
+    // ===================
+    // UI RENDERING
+    // ===================
+
+    renderVCenterCards(endpoints) {
+        this.leftColumn.innerHTML = '';
+        endpoints.forEach(endpoint => {
+            const card = this.createVCenterCard(endpoint);
+            this.leftColumn.appendChild(card);
+        });
+    }
+
+    createVCenterCard(endpoint) {
+        const card = document.createElement('div');
+        card.className = 'vcenter-card';
+        card.dataset.endpoint = endpoint;
+        card.innerHTML = `
+            <div class="vcenter-card-header">
+                <h3 class="vcenter-name">
+                    <a href="${endpoint}" target="_blank" rel="noopener noreferrer">
+                        ${endpoint}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="external-link-icon">
+                            <path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd" d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </a>
+                </h3>
+            </div>
+            <div class="vcenter-card-body">
+                <div class="vcenter-stats">
+                    <span class="alarm-count">-</span>
+                    <span class="last-updated">Loading...</span>
+                </div>
+                <div class="status-indicator loading">
+                    <span class="status-text">Loading alarms...</span>
+                </div>
+            </div>
+        `;
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('a')) { // Don't trigger on external link clicks
+                this.selectVCenter(endpoint);
+            }
+        });
+        return card;
+    }
+
+    updateVCenterCard(endpoint) {
+        const card = document.querySelector(`[data-endpoint="${endpoint}"]`);
+        if (!card) return;
+        const data = this.vcenterData.get(endpoint);
+        if (!data) return;
+        const alarmCount = card.querySelector('.alarm-count');
+        const lastUpdated = card.querySelector('.last-updated');
+        const statusIndicator = card.querySelector('.status-indicator');
+        const statusText = card.querySelector('.status-text');
+        if (data.status === 'success') {
+            alarmCount.textContent = data.alarms.length;
+            alarmCount.className = data.alarms.length > 0 ? 'alarm-count has-alarms' : 'alarm-count no-alarms';
+        } else {
+            alarmCount.textContent = '-';
+            alarmCount.className = 'alarm-count';
+        }
+        lastUpdated.textContent = `Updated: ${data.lastUpdated.toLocaleString()}`;
+        statusIndicator.className = `status-indicator ${data.status}`;
+        switch (data.status) {
+            case 'loading':
+                statusText.textContent = 'Loading alarms...';
+                break;
+            case 'success':
+                statusText.textContent = `${data.alarms.length} alarms found`;
+                break;
+            case 'error':
+                statusText.textContent = `There was an error retrieving the alarms`;
+                break;
+        }
+        if (this.selectedEndpoint === endpoint) {
+            this.renderAlarmCards(data);
+        }
+    }
+
+    selectVCenter(endpoint) {
+        document.querySelectorAll('.vcenter-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        const selectedCard = document.querySelector(`[data-endpoint="${endpoint}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
+        this.selectedEndpoint = endpoint;
+        const data = this.vcenterData.get(endpoint);
+        if (data) {
+            this.renderAlarmCards(data);
+        } else {
+            this.renderLoadingAlarms();
+        }
+    }
+
+    renderAlarmCards(vcenterData) {
+        this.rightColumn.innerHTML = '';
+        const container = document.createElement('div');
+        container.className = 'alarms-container';
+        const header = document.createElement('div');
+        header.className = 'alarms-header';
+        header.innerHTML = `
+            <div class="alarms-info">
+                <span class="alarm-count-badge">${vcenterData.alarms.length} alarm(s)</span>
+                <span class="last-updated">Last updated: ${vcenterData.lastUpdated.toLocaleString()}</span>
+            </div>
+        `;
+        container.appendChild(header);
+        if (vcenterData.status === 'error') {
+            this.renderErrorState(container, vcenterData.error);
+        } else if (vcenterData.alarms.length === 0) {
+            this.renderNoAlarmsState(container);
+        } else {
+            this.renderAlarmsGrid(container, vcenterData.alarms);
+        }
+        this.rightColumn.appendChild(container);
+    }
+
+    renderAlarmsGrid(container, alarms) {
+        const grid = document.createElement('div');
+        grid.className = 'alarms-grid';
+        alarms.forEach(alarm => {
+            const card = this.createAlarmCard(alarm);
+            grid.appendChild(card);
+        });
+        container.appendChild(grid);
+    }
+
+    createAlarmCard(alarm) {
+        const card = document.createElement('div');
+        card.className = 'alarm-card';
+        card.innerHTML = `
+            <div class="alarm-card-header">
+                <h4 class="alarm-name">${this.escapeHtml(alarm.Name)}</h4>
+                <span class="alarm-timestamp">${this.escapeHtml(alarm.Timestamp)}</span>
+            </div>
+            <div class="alarm-card-body">
+                <div class="alarm-resource">
+                    <strong>Resource:</strong> ${this.escapeHtml(alarm.Resource)}
+                </div>
+                <div class="alarm-message">
+                    <strong>Message:</strong> ${this.escapeHtml(alarm.Message)}
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    // ===================
+    // STATE RENDERING
+    // ===================
+
+    renderLoadingAlarms() {
+        this.rightColumn.innerHTML = `
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading alarms...</p>
+            </div>
+        `;
+    }
+
+    renderNoAlarmsState(container) {
+        const noAlarms = document.createElement('div');
+        noAlarms.className = 'no-alarms-state';
+        noAlarms.innerHTML = `
+            <h3>No Triggered Alarms</h3>
+            <p>All systems are running normally for this vCenter endpoint.</p>
+        `;
+        container.appendChild(noAlarms);
+    }
+
+    renderErrorState(container, errorMessage) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-state';
+        errorDiv.innerHTML = `
+            <h3>Unable to Load Alarms</h3>
+            <p>There was an error loading alarms for this vCenter endpoint:</p>
+            <div class="error-message">${this.escapeHtml(errorMessage)}</div>
+            <button class="retry-button" onclick="dashboard.retryLoadAlarms('${this.selectedEndpoint}')">
+                Retry Loading
+            </button>
+        `;
+        container.appendChild(errorDiv);
+    }
+
+    renderEmptyState() {
+        this.leftColumn.innerHTML = `
+            <div class="empty-state">
+                <h3>No vCenter Endpoints Found</h3>
+                <p>No vCenter endpoints are configured or available.</p>
+            </div>
+        `;
+    }
+
+    // ===================
+    // ERROR HANDLING
+    // ===================
+
+    handleGlobalError(message, error) {
+        console.error(message, error);
+
+        this.leftColumn.innerHTML = `
+            <div class="global-error">
+                <h3>Dashboard Error</h3>
+                <p>${message}</p>
+                <div class="error-details">${this.escapeHtml(error.message)}</div>
+                <button onclick="location.reload()">Reload Dashboard</button>
+            </div>
+        `;
+    }
+
+    async retryLoadAlarms(endpoint) {
+        await this.loadAlarmsForEndpoint(endpoint);
+    }
+
+    // ===================
+    // UTILITIES
+    // ===================
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.dashboard = new VCenterDashboard();
+});
+
+</script>
